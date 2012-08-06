@@ -17,89 +17,71 @@ BEGIN {
     $no_weather = 0;
     eval "use LWP::UserAgent";
     $no_weather++ if ($@);
+    eval "use Geo::METAR";
+    $no_weather++ if ($@);
 }
 
 sub get_weather {
-    my ($station) = shift;
-    my $result;
+    	my $site_id = uc($2);
+	return "No parameter was passed." if (!$site_id);
 
-    # make this work like Aviation
-    $station = uc($station);
-    
-    my $station = uc($2);
-    $station =~ s/[.?!]$//;
-    $station =~ s/\s+$//g;
-    return "'$station' doesn't look like a valid ICAO airport identifier."
-        unless $station =~ /^[\w\d]{3,4}$/;
-    $station = "C" . $station if length($station) == 3 && $station =~ /^Y/;
-    $station = "K" . $station if length($station) == 3;
+	# ICAO airport codes *can* contain numbers, despite earlier claims.
+	# Americans tend to use old FAA three-letter codes; luckily we can
+	# *usually* guess what they mean by prepending a 'K'. The author,
+	# being Canadian, is similarly lazy.
+	
+	$site_id =~ s/[.?!]$//;
+	$site_id =~ s/\s+$//g;
+	return "'$site_id' doesn't look like a valid ICAO airport identifier."
+	    unless $site_id =~ /^[\w\d]{3,4}$/;
+	$site_id = "C" . $site_id if length($site_id) == 3 && $site_id =~ /^Y/;
+	$site_id = "K" . $site_id if length($site_id) == 3;
+	
+	# HELP isn't an airport, so we use it for a reference work.
+	return "For weather, ask me 'metar <airport code>'."
+	    if $site_id eq 'HELP';
+	
+	my $metar_url = "http://weather.noaa.gov/cgi-bin/mgetmetar.pl?cccc=$site_id";
+	
+	# Grab METAR report from Web.   
+	my $agent = new LWP::UserAgent;
+	if (my $proxy = main::getparam('httpproxy')) { $agent->proxy('http', $proxy) };
+	$agent->timeout(10);
+	my $grab = new HTTP::Request GET => $metar_url;
+	
+	my $reply = $agent->request($grab);
+	
+	# If it can't find it, assume luser error :-)
+	return "Either $site_id doesn't exist (try a 4-letter station code like KAGC), or the NOAA site is unavailable right now." 
+	    unless $reply->is_success;
+	
+	# extract METAR from incredibly and painfully verbose webpage
+	my $webdata = $reply->as_string;
+	$webdata =~ m/($site_id\s\d+Z.*?)</s;    
+	my $metar = $1;                       
+	$metar =~ s/\n//gm;
+	$metar =~ s/\s+/ /g;
+	
+	# Sane?
+	return "I can't find any observations for $site_id." if length($metar) < 10;
 
-    if ($no_weather) {
-        return 0;
-    } else {
+	my $result;
+	my $m = new Geo::METAR; #decode the METAR data, using a short variable name for convenience
+	$m->metar($metar);
 
-        my $ua = new LWP::UserAgent;
-        if (my $proxy = main::getparam('httpproxy')) { $ua->proxy('http', $proxy) };
+	my $wx = join(" ", @{$m->{WEATHER}});
+	my $sky = join(" ", @{$m->{SKY}});
+	my $remark = join(" ", @{$m->{SKY}});
+	
+	$result = "Conditions for " . $m->{SITE} . " as of " . $m->{DATE} . " " . $m->{TIME} . ": Temp: " . $m->{TEMP_F} . "F (" . $m->{TEMP_C} . "C) Wind: " . $m->{WIND_MPH} . " MPH from the " . $m->{WIND_DIR_ENG} . ". Sky/clouds: " . $sky;
 
-        $ua->timeout(10);
-        my $request = new HTTP::Request('GET', "http://weather.noaa.gov/weather/current/$station.html");
-        my $response = $ua->request($request); 
-
-        if (!$response->is_success) {
-            return "Something failed in connecting to the NOAA web server. Try again later.";
-        }
-
-        $content = $response->content;
-
-        if ($content =~  /ERROR/i) {
-            return "I can't find that station code (see http://weather.noaa.gov/weather/curcond.html for locations codes)";
-        } 
-
-        $content =~ s|.*?current weather conditions:<BR>(.*?)</B>.*?</TR>||is;
-        my $place = $1;
-
-        # $content =~ s|.*?<TR>(?:\s*<[^>]+>)*\s*([^<]+)\s<.*?</TR>||is;
-        my $place = $1;
-        chomp $place;
-
-        $content =~ s|.*?<TR>(?:\s*<[^>]+>)*\s*([^<]+)\s<.*?</TR>||is;
-        my $id = $1;
-        chomp $id;
-
-        $content =~ s|.*?conditions at.*?</TD>||is;
-
-        $content =~ s|.*?<OPTION SELECTED>\s+([^<]+)\s<OPTION>.*?</TR>||s;
-        my $time = $1;
-        $time =~ s/-//g;
-        $time =~ s/\s+/ /g;
-
-        $content =~ s|\s(.*?)<TD COLSPAN=2>||s;
-        my $features = $1;
-
-        my %feat;
-        while ($features =~ s|.*?<TD ALIGN[^>]*>(?:\s*<[^>]+>)*\s+([^<]+?)\s+<.*?<TD>(?:\s*<[^>]+>)*\s+([^<]+?)\s<.*?/TD>||s) {
-            my ($f,$v) = ($1, $2);
-            chomp $f; chomp $v;
-            $feat{$f} = $v;
-        }
-
-        $content =~ s|.*?>(\d+\S+\s+\(\S+\)).*?</TD>||s;  # max temp;
-        $max_temp = $1;
-        $content =~ s|.*?>(\d+\S+\s+\(\S+\)).*?</TD>||s;  
-        $min_temp = $1;
-
-        if ($time) {
-            $result = "$place; $id; last updated: $time";
-            foreach (sort keys %feat) {
-                next if $_ eq 'ob';
-                $result .= "; $_: $feat{$_}";
-            }
-            my $t = time();
-        } else {
-            $result = "I can't find that station code (see http://weather.noaa.gov/weather/curcond.html for locations and codes)";
-        }
-        return $result;
-    }
+	# is there any current weather behavior? if so, add it to the output
+	if ($m->{WEATHER}) {$result = $result . " Weather: " . $wx};
+	
+	# are there any remarks? go ahead and display them if so, even if they're not 'readable'
+	if ($m->{REMARKS}) {$result = $result . " Remarks: " . $remark};
+       
+	return $result;
 }
 
 sub scan (&$$) {
