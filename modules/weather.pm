@@ -19,6 +19,10 @@ BEGIN {
     $no_weather++ if ($@);
     eval "use Geo::METAR";
     $no_weather++ if ($@);
+    eval "use Geo::ICAO qw{:airport}";
+    $no_weather++ if ($@);
+    eval "use Math::Round";
+    $no_weather++ if ($@);
 }
 
 sub get_weather {
@@ -65,21 +69,24 @@ sub get_weather {
 	# Sane?
 	return "I can't find any observations for $site_id." if length($metar) < 10;
 
-	my $result;
+	my ($result, $wx, $sky, $remark, $wind, @airport, $location);
 	my $m = new Geo::METAR; #decode the METAR data, using a short variable name for convenience
 	$m->metar($metar);
-
-	my $wx = join(" ", @{$m->{WEATHER}});
-	my $sky = join(" ", @{$m->{SKY}});
-	my $remark = join(" ", @{$m->{SKY}});
 	
-	$result = "Conditions for " . $m->{SITE} . " as of " . $m->{DATE} . " " . $m->{TIME} . ": Temp: " . $m->{TEMP_F} . "F (" . $m->{TEMP_C} . "C) Wind: " . $m->{WIND_MPH} . " MPH from the " . $m->{WIND_DIR_ENG} . ". Sky/clouds: " . $sky;
+	@airport = code2airport($m->{SITE});
+	$location = length($airport[1]) ? $airport[1] : $airport[0];
+	$wx = join(" ", @{$m->{WEATHER}});
+	$sky = join(" ", @{$m->{SKY}});
+	$remark = join(" ", @{$m->{SKY}});
+	$wind = round($m->{WIND_MPH});
+	
+	$result = "Conditions for " . $location . " as of " . $m->{TIME} . ": Temp: " . $m->{TEMP_F} . "F (" . $m->{TEMP_C} . "C) Wind: " . $wind . " MPH from the " . $m->{WIND_DIR_ENG} . ". Sky/clouds: " . $sky;
 
 	# is there any current weather behavior? if so, add it to the output
-	if ($m->{WEATHER}) {$result = $result . " Weather: " . $wx};
+	if (length($wx)) {$result .= " Weather: " . $wx};
 	
 	# are there any remarks? go ahead and display them if so, even if they're not 'readable'
-	if ($m->{REMARKS}) {$result = $result . " Remarks: " . $remark};
+	if (length($remark) && lc($remark) ne lc($sky)) {$result .= " Remarks: " . $remark};
        
 	return $result;
 }
