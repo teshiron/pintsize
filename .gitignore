@@ -27,6 +27,7 @@
 *.sqlite
 *.dir
 *.pag
+pintsize-*
 
 # OS generated files #
 ######################
