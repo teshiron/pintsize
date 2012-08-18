@@ -43,7 +43,7 @@ sub scan(&$$) {
         &main::status("count is $count");
         
         if ($count > 10) {
-            $return_bool = (int(rand(100)) <= 80) ? 1 : 0;
+            $return_bool = (int(rand(100)) <= 75) ? 1 : 0;
         } elsif ($count >= 4 && $count <= 10) {
             $return_bool = (int(rand(100)) <= 30) ? 1 : 0;
         } elsif ($count < 4) {
