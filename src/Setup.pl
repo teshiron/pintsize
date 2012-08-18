@@ -102,6 +102,11 @@ sub setup {
         &openDBMx('seenurls');
     }
 
+    if ($param{'hell'}) {
+        &openDBMx('hell');
+    }
+
+
     # set up the users and ops
     &status("Parsing User File");
     &parseUserfile();
