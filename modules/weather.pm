@@ -80,7 +80,7 @@ sub get_weather {
 	$remark = join(" ", @{$m->{SKY}});
 	$wind = round($m->{WIND_MPH});
 	
-	$result = "Conditions for " . $location . " as of " . $m->{TIME} . ": Temp: " . $m->{TEMP_F} . "F (" . $m->{TEMP_C} . "C) Wind: " . $wind . " MPH from the " . $m->{WIND_DIR_ENG} . ". Sky/clouds: " . $sky;
+	$result = "Conditions for " . $location . " as of " . $m->{TIME} . ": Temp: " . $m->{TEMP_F} . "F (" . $m->{TEMP_C} . "C) Wind: " . $wind . " MPH from the " . $m->{WIND_DIR_ABB} . ". Sky/clouds: " . $sky;
 
 	# is there any current weather behavior? if so, add it to the output
 	if (length($wx)) {$result .= " Weather: " . $wx};
