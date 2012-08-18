@@ -38,7 +38,7 @@ sub scan(&$$) {
                 when (3) { $reply = "I think you should go with " . $answer . ", but that's just my opinion."; }
                 when (4) { $reply = $who . ", survey says " . $answer . "."; }
                 when (5) { $reply = "Definitely " . $answer . "."; }
-                default { ...; }
+                default { $reply = $who . ": " . $answer; }
             }
         } 
         else { 
