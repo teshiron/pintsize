@@ -108,7 +108,7 @@ sub scan(&$$) {
                     $dstring = $delta->printf('%.2mms minutes');
                 }
 
-                $reply = "\cAACTION stuffs " . $phrase . " into the closet behind him.\cA";
+                $reply = "\cAACTION grabs " . $phrase . " and stuffs it into the closet behind him.\cA";
                 $callback->($reply);
                 sleep 1;
                 $reply = "\cAACTION dodges " . $return_string . " as it falls out of the closet before he can shut the door.\cA";
@@ -125,7 +125,7 @@ sub scan(&$$) {
                 $return_string2 = ::get('hell', $return_key2); #retrieve the string for the 2nd item
                 ::clear('hell', $return_key2); #delete the 2nd item from the db
 
-                $reply = "\cAACTION stuffs " . $phrase . " into the closet behind him.\cA";
+                $reply = "\cAACTION grabs " . $phrase . " and stuffs it into the closet behind him.\cA";
                 $callback->($reply);
                 sleep 1;
                 $reply = "\cAACTION dodges " . $return_string . " as it falls out of the closet before he can shut the door.\cA";
@@ -135,8 +135,9 @@ sub scan(&$$) {
                 $callback->($reply);
             }
         } else { #$return_bool is false, so nothing fell out at all
-            $reply = "\cAACTION stuffs " . $phrase . " into the closet behind him.\cA";
+            $reply = "\cAACTION grabs " . $phrase . " and stuffs it into the closet behind him.\cA";
             $callback->($reply);
+            sleep 1;
             $reply = "\cAACTION manages to shut the closet door before anything can fall out.\cA";
             $callback->($reply);
         }       
